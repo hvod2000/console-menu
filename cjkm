@@ -1,0 +1,10 @@
+#!/bin/bash
+# -*- coding: UTF-8 -*-
+# sharp s: ß
+
+function render {
+	printf "$options"
+}
+
+options=$'option 1\noption 2\noption 3'
+render
