@@ -1,9 +1,17 @@
 #!/bin/bash
 
-print() { printf "$1" >> /dev/tty; }
-print "\e[2J\e[5H> "
 opts=$(</dev/stdin)
-
+exec 3<&1 </dev/tty >/dev/tty
+print() { printf "$1" >> /dev/tty; }
+print "\e[?25l\e[2J\e[6H> _"
+LINES=`tput lines`
+declare -i l
+render() {
+	sugs=`echo "$opts" | grep -Fm$((LINES-1)) "$pattern" | sed $'s/$/\e[K/g; s/^/  /g'`
+	l=$LINES-`wc -l <<< $sugs`
+	print "\e[1H$sugs`printf '\e[K\n%.0s' $(seq $l)`"
+}
+render
 while read -sN1 char; do
 	case $char in
 		($'\e') print "\ec" && exit 1;;
@@ -12,8 +20,10 @@ while read -sN1 char; do
 		($'\n') break;;
 		(*) pattern+=$char;;
 	esac
-	print "\e[5H> $pattern"
+	print "\e[${LINES}H> ${pattern}█\e[K"
+	render &
 done </dev/tty
 
 print "\ec"
+exec >&3
 echo "$pattern"
