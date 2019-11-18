@@ -15,7 +15,7 @@ while read -sN1 char; do
 	case $char in
 		($'\e') printf "\ec" && exit 1;;
 		($'\b'|$'\177') pattern=${pattern%?};;
-		($'\t') pattern=TODO;;
+		($'\t') pattern=`grep -Fm1 "$pattern" <<< $opts`;;
 		($'\n') break;;
 		(*) pattern+=$char;;
 	esac
