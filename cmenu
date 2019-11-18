@@ -1,0 +1,20 @@
+#!/bin/bash
+
+print() { printf "$1" >> /dev/tty; }
+print "\e[?25l\e[2J"
+declare -i cur
+opts=$(</dev/stdin) len=`echo "$opts" | wc -l` cur=1
+print "\e[H`sed $'s/$/\E[K/g; s/^/  /g'<<<$opts`\e[${cur}H>"
+
+while read -sN1 char; do
+	case $char in
+		(j) cur=$cur%$len+1;;
+		(k) cur=($cur+$len-2)%$len+1;;
+		(q) print "\ec" && exit 1;;
+		(l|h) break
+	esac
+	print "\b \e[${cur}H>"
+done </dev/tty
+
+print "\ec"
+echo "$opts" | sed -n ${cur}p
