@@ -2,29 +2,19 @@
 # -*- coding: UTF-8 -*-
 # sharp s: ß
 
-printf "\e[?25l\e[2J" >> /dev/tty
-function DIE {
-	printf "\ec" >> /dev/tty 
-	exit 1
+print() {
+	printf "$1" >> /dev/tty
 }
-function render {
-	local options=`echo "$options" | sed $'s/$/\E[K/g; s/^/  /g'`
-	buffer="\e[H$options"
-	buffer+="\e[${cur}H"
-	buffer+=">"
-	printf "$buffer" >> /dev/tty
-}
-
-options=$(</dev/stdin)
-count=`echo "$options" | wc -l`
-declare -i cur; cur=1
-render
+print "\e[?25l\e[2J"
+declare -i cur
+opts=$(</dev/stdin) len=`echo "$opts" | wc -l` cur=1
+print "\e[H`sed $'s/$/\E[K/g; s/^/  /g'<<<$opts`\e[${cur}H>"
 while read -sN1 char; do
-	test "$char" = j && cur=$cur%$count+1
-	test "$char" = k && cur=($cur+$count-2)%$count+1
-	test "$char" = q && DIE
+	test "$char" = j && cur=$cur%$len+1
+	test "$char" = k && cur=($cur+$len-2)%$len+1
+	test "$char" = q && print "\ec" && exit 1
 	test "$char" = l || test "$char" = h && break
-	render
+	print "\b \e[${cur}H>"
 done </dev/tty
-printf "\ec" >> /dev/tty
-echo "$options" | sed -n ${cur}p
+print "\ec"
+echo "$opts" | sed -n ${cur}p
