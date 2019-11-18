@@ -2,9 +2,27 @@
 # -*- coding: UTF-8 -*-
 # sharp s: ß
 
+printf "\e[?25l\e[2J"
+atexit=printf\ "\ec"
 function render {
-	printf "$options"
+	local options=`echo "$options" | sed $'s/$/\E[K/g; s/^/  /g'`
+	buffer="\e[H$options"
+	buffer+="\e[${cur}H"
+	buffer+=">"
+	printf "$buffer"
 }
 
-options=$'option 1\noption 2\noption 3'
+options=$'option 1\noption 2\noption 3\noption 4\noption 5'
+count=5
+declare -i cur
+cur=1
 render
+while read -sN1 char; do
+	test "$char" = j && cur=$cur%$count+1
+	test "$char" = k && cur=($cur+$count-2)%$count+1
+	test "$char" = q && $atexit && exit 1
+	test "$char" = l || test "$char" = h && break
+	render
+done
+$atexit
+echo "$options" | sed -n ${cur}p
