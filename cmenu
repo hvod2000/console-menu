@@ -2,25 +2,27 @@
 
 opts=$(</dev/stdin)
 exec 3<&1 </dev/tty >/dev/tty
-LINES=`tput lines`
-printf "\e[?25l\e[2J\e[${LINES}H> _"
-declare -i l
+printf "\e[?25l\e[2J"
+LINES=$(tput lines)
+
 render() {
-	sugs=`echo "$opts" | grep -Fm$((LINES-1)) "$pattern" | sed $'s/$/\e[K/g; s/^/  /g'`
-	l=$LINES-`wc -l <<< $sugs`
-	printf "\e[1H$sugs`printf '\e[K\n%.0s' $(seq $l)`"
+	printf "\e[999H> %s <\e[K" "$pattern"
+	sugs=$( (
+	    grep -Fm$((LINES-1)) "$pattern" |
+	    sed $'s/$/\e[K/g; s/^/  /g') <<< $opts)
+	printf '\e[1H%s' "$sugs"
+	printf '\e[K\n%.0s' $(seq $((LINES - $(wc -l <<< $sugs))))
 }
 render
 while read -sN1 char; do
 	case $char in
 		($'\e') printf "\ec" && exit 1;;
 		($'\b'|$'\177') pattern=${pattern%?};;
-		($'\t') pattern=`grep -Fm1 "$pattern" <<< $opts`;;
+		($'\t') pattern=$(grep -Fm1 "$pattern" <<< $opts);;
 		($'\n') break;;
 		(*) pattern+=$char;;
 	esac
-	printf "\e[${LINES}H> ${pattern}_\e[K"
-	render &
+	render
 done
 
 printf "\ec"
