@@ -12,7 +12,7 @@ render() {
 }
 
 render
-while read -sN1 char; do
+while read -rsN1 char; do
 	case $char in
 		(j) cur=$cur%$len+1;;
 		(k) cur=($cur+$len-2)%$len+1;;
