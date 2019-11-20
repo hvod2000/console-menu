@@ -1,20 +1,27 @@
 #!/bin/bash
 
-print() { printf "$1" >> /dev/tty; }
-print "\e[?25l\e[2J"
-declare -i cur
-opts=$(</dev/stdin) len=`echo "$opts" | wc -l` cur=1
-print "\e[H`sed $'s/$/\E[K/g; s/^/  /g'<<<$opts`\e[${cur}H>"
+opts=$(</dev/stdin) len=$(wc -l <<< $opts) cur=1
+exec 3<&1 </dev/tty >/dev/tty
+printf "\e[?25l\e[2J\e[?7l"
 
+declare -i cur
+render() {
+	printf "\e[H"
+	sed $'s/$/\e[K/g; s/^/  /g' <<< $opts
+	printf "\b \e[${cur}H>"
+}
+
+render
 while read -sN1 char; do
 	case $char in
 		(j) cur=$cur%$len+1;;
 		(k) cur=($cur+$len-2)%$len+1;;
-		(q) print "\ec" && exit 1;;
-		(l|h) break
+		(q|h) printf "\ec" && exit 1;;
+		(l) break
 	esac
-	print "\b \e[${cur}H>"
-done </dev/tty
+	render
+done
 
-print "\ec"
-echo "$opts" | sed -n ${cur}p
+printf "\ec"
+exec >&3
+sed -n ${cur}p <<< $opts
