@@ -3,16 +3,17 @@
 opts=$(</dev/stdin)
 exec 3<&1 </dev/tty >/dev/tty
 printf "\e[?25l\e[2J\e[?7l"
-LINES=$(tput lines)
 
 render() {
+	LINES=$(tput lines)
 	printf "\e[999H> %s <\e[K" "$pattern"
 	sugs=$( (
-		grep -Fm$((LINES-1)) "$pattern" |
+		grep -Fm$((LINES-1)) -- "$pattern" |
 		sed $'s/$/\e[K/g; s/^/  /g') <<< $opts)
 	printf '\e[1H%s' "$sugs"
 	printf '\e[K\n%.0s' $(seq $((LINES - $(wc -l <<< $sugs))))
 }
+
 render
 while read -rsN1 char; do
 	case $char in
@@ -27,4 +28,4 @@ done
 
 printf "\ec"
 exec >&3
-echo "$pattern"
+printf "%s\n" "$pattern"
