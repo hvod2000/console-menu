@@ -1,27 +1,35 @@
 #!/bin/bash
 
-opts=$(</dev/stdin) len=$(wc -l <<< $opts) cur=1
-exec 3<&1 </dev/tty >/dev/tty
-printf "\e[?25l\e[2J\e[?7l"
+init_tty() {
+	printf "\e[?25l\e[2J\e[?7l"
+}
+readarray -t opts</dev/stdin; len=${#opts[@]}
+exec 3<&1 </dev/tty >/dev/tty; init_tty
 
-declare -i cur
+declare -i cur offset
 render() {
+	LINES=$(tput lines)
+	((cur>=LINES+offset)) && offset=cur-LINES+1
+	((cur<offset)) && offset=cur
 	printf "\e[H"
-	sed $'s/$/\e[K/g; s/^/  /g' <<< $opts
-	printf "\b \e[${cur}H>"
+	printf %s "$(printf "  %s\e[K\n" "${opts[@]:offset:LINES}")"
+	printf "\e[J\e[$((cur-offset+1))H> "
+}
+
+return() {
+	printf "\ec"
+	exec >&3
+	printf "%s\n" "$1"
+	exit
 }
 
 render
 while read -rsN1 char; do
 	case $char in
-		(j) cur=$cur%$len+1;;
-		(k) cur=($cur+$len-2)%$len+1;;
+		(j) cur=(cur+1)%len; render;;
+		(k) cur=(cur+len-1)%len; render;;
 		(q|h) printf "\ec" && exit 1;;
 		(l) break
 	esac
-	render
 done
-
-printf "\ec"
-exec >&3
-sed -n ${cur}p <<< $opts
+return "${opts[cur]}"
