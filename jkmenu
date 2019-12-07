@@ -1,32 +1,47 @@
 #!/bin/bash
 
-readarray -t opts</dev/stdin; len=${#opts[@]}
-exec 3<&1 </dev/tty >/dev/tty; printf "\e[?25l\e[?7l"
-
-declare -i cur offset
-return_key=false
+declare -i cur offset LINES
 LINES=$(tput lines 2>/dev/null || echo 20)
-for arg in $@; do case $arg in
-	(-k)	return_key=true
+delimiter=$'\n'
+safe_mode=false
+return_key=false
+item_format='  %s'
+selected_item_format='> %s'
+for arg in "$@"; do case $arg in
+	(-k)	return_key=true;;
+	(-s)	safe_mode=true;;
+	(-l*)	LINES=${arg:2};;
+	(-c*)	cur=${arg:2};;
+	(-d*)	delimiter="${arg:2}";;
+	(-ni*)	item_format="${arg:3}";;
+	(-si*)	selected_item_format="${arg:3}";;
+	(-p*)	prompt="${arg:2}"
+		prompt=$(sed $'s/$/\e[K/' <<< $prompt)
+		prompt_len=$(wc -l <<< $prompt);;
+	(*)	printf -- "%s: invalid option -- '%s'\n" "$0" "$arg"
+		exit 1
 esac done
+LINES=LINES-prompt_len
+readarray -d "$delimiter" -t opts</dev/stdin; len=${#opts[@]}
+exec 3<&1 </dev/tty >/dev/tty; 
+$safe_mode || printf "\e[?25l\e[?7l\e[2J"
 render() {
 	((cur>=LINES+offset)) && offset=cur-LINES+1
 	((cur<offset)) && offset=cur
-	printf "\e[H"
-	printf %s "$(printf "  %s\e[K\n" "${opts[@]:offset:LINES}")"
-	printf "\e[J\e[$((cur-offset+1))H> "
+	printf -- "\e[%sH%s\e[J\e[%sH$selected_item_format" \
+		$((prompt_len+1)) \
+		"$(printf -- "$item_format\e[K\n" "${opts[@]:offset:LINES}")" \
+		$((cur-offset+prompt_len+1)) \
+		"${opts[cur]}"
 }
-
+printf -- "\e[H%s\n" "$prompt"
 render
-while read -rsN1 char; do
-	case $char in
+while read -rsN1 char; do case $char in
 	(j)	cur=(cur+1)%len;;
 	(k)	cur=(cur+len-1)%len;;
 	(l)	break;;
 	(*)	$return_key && break;;
-	esac
-	render
-done
-printf "\ec"
+esac; render; done
+$safe_mode || printf "\ec"
 $return_key && printf -- %s\\0 "$char" >&3
 printf -- %s "${opts[cur]}" >&3
