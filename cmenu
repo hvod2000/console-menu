@@ -1,19 +1,33 @@
 #!/bin/bash
 
-opts=$(</dev/stdin)
+declare -i LINES
+LINES=$(tput lines 2>/dev/null || echo 20)
+delimiter=$'\n'
+safe_mode=false
+input_format='> %s█'
+item_format='  %s'
+for arg in "$@"; do case $arg in
+	(-s)	safe_mode=true;;
+	(-l*)	LINES=${arg:2};;
+	(-d*)	delimiter="${arg:2}";;
+	(-p*)	prompt=$(sed $'s/$/\e[K/' <<< ${arg:2})
+		prompt_len=$(wc -l <<< $prompt);;
+	(-re*)	input_format="${arg:3}";;
+	(-ni*)	item_format="${arg:3}";;
+	(*)	printf -- "%s: invalid option -- '%s'\n" "$0" "$arg"
+		exit 1
+esac done
+LINES=LINES-prompt_len
+readarray -d "$delimeter" -t opts</dev/stdin; opts_len=${#opts[@]}
 exec 3<&1 </dev/tty >/dev/tty
-printf "\e[?25l\e[2J\e[?7l"
-
+$safe_mode || printf "\e[?25l\e[?7l\e[2J"
 render() {
-	LINES=$(tput lines)
-	printf "\e[999H> %s <\e[K" "$pattern"
-	sugs=$( (
-		grep -Fm$((LINES-1)) -- "$pattern" |
+	printf -- "\e[%sH$input_format\e[K\n"  $((prompt_len+1)) "$pattern"
+	sugs=$( (grep -Fm$((LINES-1)) -- "$pattern" |
 		sed $'s/$/\e[K/g; s/^/  /g') <<< $opts)
-	printf '\e[1H%s' "$sugs"
-	printf '\e[K\n%.0s' $(seq $((LINES - $(wc -l <<< $sugs))))
+	printf -- "%s\e[J" "$sugs"
 }
-
+printf -- "\e[H%s\n" "$prompt"
 render
 while read -rsN1 char; do
 	case $char in
@@ -26,6 +40,5 @@ while read -rsN1 char; do
 	render
 done
 
-printf "\ec"
-exec >&3
-printf "%s\n" "$pattern"
+$safe_mode || printf "\ec"
+printf -- "%s" "$pattern" >&3
