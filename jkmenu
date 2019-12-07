@@ -4,8 +4,12 @@ readarray -t opts</dev/stdin; len=${#opts[@]}
 exec 3<&1 </dev/tty >/dev/tty; printf "\e[?25l\e[?7l"
 
 declare -i cur offset
+return_key=false
+LINES=$(tput lines 2>/dev/null || echo 20)
+for arg in $@; do case $arg in
+	(-k)	return_key=true
+esac done
 render() {
-	LINES=$(tput lines)
 	((cur>=LINES+offset)) && offset=cur-LINES+1
 	((cur<offset)) && offset=cur
 	printf "\e[H"
@@ -13,24 +17,16 @@ render() {
 	printf "\e[J\e[$((cur-offset+1))H> "
 }
 
-return() {
-	printf "\ec"
-	exec >&3
-	printf "%s\n" "$1"
-	exit
-}
-
 render
 while read -rsN1 char; do
 	case $char in
-		(j)	cur=(cur+1)%len;;
-		(k)	cur=(cur+len-1)%len;;
-		(/)	ans=$(printf "%s\n" "${opts[@]}" | cmenu) && return "$ans"
-			printf "\e[?25l\e[?7l";;
-		(q)	printf "\ec" && exit 1;;
-		(h)	printf "\ec" && exit 2;;
-		(l)	break
+	(j)	cur=(cur+1)%len;;
+	(k)	cur=(cur+len-1)%len;;
+	(l)	break;;
+	(*)	$return_key && break;;
 	esac
 	render
 done
-return "${opts[cur]}"
+printf "\ec"
+$return_key && printf -- %s\\0 "$char" >&3
+printf -- %s "${opts[cur]}" >&3
