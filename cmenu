@@ -18,7 +18,7 @@ for arg in "$@"; do case $arg in
 		exit 1
 esac done
 LINES=LINES-prompt_len
-readarray -d "$delimeter" -t opts</dev/stdin; opts_len=${#opts[@]}
+readarray -d "$delimeter" -t opts; opts_len=${#opts[@]}
 exec 3<&1 </dev/tty >/dev/tty
 $safe_mode || printf "\e[?25l\e[?7l\e[2J"
 render() {
